@@ -1,6 +1,8 @@
 import bot from './assets/bot.png'
 import user from './assets/user.png'
 
+// const { Translate } = require('@google-cloud/translate').v2
+
 const form = document.querySelector('form')
 const chatContainer = document.querySelector('#chat_container')
 
@@ -60,12 +62,12 @@ const handleSubmit = async (e) => {
 
 	const data = new FormData(form)
 
-	// user's chatstripe
+	// user's chatstript
 	chatContainer.innerHTML += chatStripe(false, data.get('prompt'))
 
 	form.reset()
 
-	// bot's chatstripe
+	// bot's chatstript
 	const uniqueId = generateUniqueId()
 	chatContainer.innerHTML += chatStripe(true, ' ', uniqueId)
 

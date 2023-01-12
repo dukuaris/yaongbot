@@ -1,9 +1,13 @@
-import express from 'express'
-import * as dotenv from 'dotenv'
-import cors from 'cors'
-import { Configuration, OpenAIApi } from 'openai'
+const express = require('express')
+require('dotenv').config()
+const cors = require('cors')
+const { Configuration, OpenAIApi } = require('openai')
+const { Translate } = require('@google-cloud/translate').v2
 
-dotenv.config()
+const translate = new Translate({
+	projectId: 'catalk at',
+	key: process.env.GOOGLE_API_KEY,
+})
 
 const configuration = new Configuration({
 	apiKey: process.env.OPENAI_API_KEY,
@@ -22,9 +26,21 @@ app.get('/', async (req, res) => {
 })
 
 app.post('/', async (req, res) => {
-	try {
-		const prompt = req.body.prompt
+	const prompt_origin = req.body.prompt
 
+	let [detections] = await translate.detect(prompt_origin)
+	const target = detections.language
+
+	let prompt
+
+	if (target !== 'en') {
+		const [prompts] = await translate.translate(prompt_origin, 'en')
+		prompt = prompts
+	} else {
+		prompt = prompt_origin
+	}
+
+	try {
 		const response = await openai.createCompletion({
 			model: 'text-davinci-003',
 			prompt: `${prompt}`,
@@ -35,9 +51,19 @@ app.post('/', async (req, res) => {
 			presence_penalty: 0,
 		})
 
-		res.status(200).send({
-			bot: response.data.choices[0].text,
-		})
+		const text = response.data.choices[0].text
+
+		if (target !== 'en') {
+			let [translations] = await translate.translate(text, target)
+			translations = Array.isArray(translations) ? translations : [translations]
+			res.status(200).send({
+				bot: translations[0].trim(),
+			})
+		} else {
+			res.status(200).send({
+				bot: text,
+			})
+		}
 	} catch (error) {
 		console.log(error)
 		res.status(500).send({ error })
