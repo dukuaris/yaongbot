@@ -1,0 +1,6 @@
+1. tutorial URL
+   - 강좌: https://youtu.be/2FeymQoKvrk
+   - 구글번역 API사용법
+      https://medium.com/analytics-vidhya/how-to-use-google-cloud-translation-api-with-nodejs-6bdccc0c2218 
+
+      https://www.npmjs.com/package/@google-cloud/translate
