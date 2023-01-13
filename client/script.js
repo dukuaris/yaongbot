@@ -1,8 +1,6 @@
 import bot from './assets/bot.png'
 import user from './assets/user.png'
 
-// const { Translate } = require('@google-cloud/translate').v2
-
 const form = document.querySelector('form')
 const chatContainer = document.querySelector('#chat_container')
 
@@ -57,13 +55,50 @@ function chatStripe(isAi, value, uniqueId) {
   `
 }
 
+async function imageAi(prompt, size) {
+	const response = await fetch('https://yaongbot.onrender.com/image', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			prompt_origin: prompt,
+			size,
+		}),
+	})
+	return response
+}
+
+async function chatAi(prompt) {
+	const response = await fetch('https://yaongbot.onrender.com', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			prompt,
+		}),
+	})
+
+	return response
+}
+
 const handleSubmit = async (e) => {
 	e.preventDefault()
 
 	const data = new FormData(form)
+	let prompt = data.get('prompt')
+	const imageReq = prompt.slice(0, 3)
+	const is_image =
+		imageReq === '@1@' || imageReq === '@2@' || imageReq === '@3@'
+
+	if (prompt === '') {
+		alert('Please add some text')
+		return
+	}
 
 	// user's chatstript
-	chatContainer.innerHTML += chatStripe(false, data.get('prompt'))
+	chatContainer.innerHTML += chatStripe(false, prompt)
 
 	form.reset()
 
@@ -77,36 +112,55 @@ const handleSubmit = async (e) => {
 
 	loader(messageDiv)
 
-	// fetch data from server -> bot's response
-	const response = await fetch('https://yaongbot.onrender.com', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			prompt: data.get('prompt'),
-		}),
-	})
+	//check the message to request an image
+	if (is_image) {
+		const size = prompt.slice(1, 2)
+		const rePrompt = prompt.slice(3).trim()
+		console.log(size)
+		// fetch data from Dalle 2 server
+		const response = await imageAi(rePrompt, size)
 
-	clearInterval(loadInterval)
-	messageDiv.innerHTML = ''
+		console.log(response)
 
-	if (response.ok) {
+		clearInterval(loadInterval)
+		messageDiv.innerHTML = ''
+
+		if (!response.ok) {
+			throw new Error('That image could not be generated')
+		}
+
 		const data = await response.json()
-		const parsedData = data.bot.trim()
 
-		typeText(messageDiv, parsedData)
+		const imageUrl = data.data
+
+		messageDiv.innerHTML = `
+					<img src="${imageUrl}" alt="" id="image" />
+		`
 	} else {
-		const err = await response.text()
+		// fetch data from chatGPT server
+		const response = await chatAi(prompt)
 
-		messageDiv.innerText = 'Something went wrong'
+		clearInterval(loadInterval)
+		messageDiv.innerHTML = ''
 
-		alert(err)
+		if (response.ok) {
+			const data = await response.json()
+			const parsedData = data.bot.trim()
+
+			typeText(messageDiv, parsedData)
+		} else {
+			const err = await response.text()
+
+			messageDiv.innerText = 'Something went wrong'
+
+			alert(err)
+		}
 	}
 }
 
 form.addEventListener('submit', handleSubmit)
 form.addEventListener('keyup', (e) => {
+	e.preventDefault()
 	if (e.keyCode === 13) {
 		handleSubmit(e)
 	}

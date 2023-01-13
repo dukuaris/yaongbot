@@ -19,10 +19,71 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+async function promptTrans(prompt_origin) {
+	let [detections] = await translate.detect(prompt_origin)
+	const target = detections.language
+
+	let prompt
+
+	if (target !== 'en') {
+		const [prompts] = await translate.translate(prompt_origin, 'en')
+		prompt = prompts
+	} else {
+		prompt = prompt_origin
+	}
+
+	return prompt
+}
+
 app.get('/', async (req, res) => {
 	res.status(200).send({
 		message: 'Hello from Codex',
 	})
+})
+
+app.post('/image', async (req, res) => {
+	const { prompt_origin, size } = req.body
+	const imageSize =
+		size === '1' ? '256x256' : size === '2' ? '512x512' : '1024x1024'
+
+	let [detections] = await translate.detect(prompt_origin)
+	const target = detections.language
+
+	let prompt
+
+	if (target !== 'en') {
+		const [prompts] = await translate.translate(prompt_origin, 'en')
+		prompt = prompts
+	} else {
+		prompt = prompt_origin
+	}
+
+	try {
+		const response = await openai.createImage({
+			prompt,
+			n: 1,
+			size: imageSize,
+		})
+
+		const imageUrl = response.data.data[0].url
+
+		res.status(200).json({
+			success: true,
+			data: imageUrl,
+		})
+	} catch (error) {
+		if (error.response) {
+			console.log(error.response.status)
+			console.log(error.response.data)
+		} else {
+			console.log(error.message)
+		}
+
+		res.status(400).json({
+			success: false,
+			error: 'The image could not be generated',
+		})
+	}
 })
 
 app.post('/', async (req, res) => {
